@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A350 Question Bank - Tích Hợp Sẵn Dữ Liệu</title>
+    <title>A350 Question Bank - Chuẩn Đáp Án 100%</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -13,27 +13,30 @@
 
     <!-- Header -->
     <header class="bg-slate-800/95 backdrop-blur border-b border-slate-700 p-4 sticky top-0 z-50 shadow-lg">
-        <div class="max-w-5xl mx-auto flex flex-wrap justify-between items-center gap-4">
+        <div class="max-w-5xl mx-auto flex flex-wrap justify-between items-center gap-3">
             <div class="flex items-center gap-3">
                 <i class="fa-solid fa-plane-departure text-sky-400 text-2xl"></i>
                 <div>
                     <h1 class="text-lg font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">
                         A350 Question Bank (752 Câu)
                     </h1>
-                    <p class="text-xs text-slate-400">Đã tích hợp sẵn dữ liệu câu hỏi</p>
+                    <p class="text-xs text-slate-400">Đã tích hợp Đánh dấu câu khó & Reset bài làm</p>
                 </div>
             </div>
 
             <!-- Action Controls -->
-            <div class="flex items-center gap-3">
-                <button id="btn-toggle-answers" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5">
+            <div class="flex items-center flex-wrap gap-2">
+                <button id="btn-filter-marked" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-star"></i> <span id="marked-count-btn">⭐ Cần xem lại (0)</span>
+                </button>
+                <button id="btn-toggle-answers" class="bg-slate-700 text-slate-200 border border-slate-600 hover:bg-slate-600 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5">
                     <i class="fa-solid fa-eye"></i> Hiện tất cả đáp án
                 </button>
-                <button id="btn-import" class="bg-sky-600 hover:bg-sky-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-file-arrow-up"></i> Cập nhật văn bản
+                <button id="btn-reset-quiz" class="bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right"></i> ↺ Reset bài tập
                 </button>
                 <div class="relative">
-                    <input type="number" id="input-search-num" min="1" max="752" placeholder="Câu số..." class="bg-slate-900 border border-slate-700 text-xs rounded-xl px-3 py-2 w-24 focus:outline-none focus:border-sky-500">
+                    <input type="number" id="input-search-num" min="1" max="752" placeholder="Câu số..." class="bg-slate-900 border border-slate-700 text-xs rounded-xl px-3 py-2 w-20 focus:outline-none focus:border-sky-500">
                     <button id="btn-go-num" class="absolute right-1 top-1 bg-sky-600 hover:bg-sky-500 text-xs px-2 py-1 rounded-lg">Đi</button>
                 </div>
             </div>
@@ -44,9 +47,10 @@
     <main class="max-w-5xl mx-auto w-full p-4 flex-1 flex flex-col gap-6 my-4">
 
         <!-- Info / Score Bar -->
-        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex justify-between items-center text-xs text-slate-300">
-            <span>Tổng số: <b id="total-count" class="text-sky-400 font-bold">0</b> câu hỏi</span>
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-2 text-xs text-slate-300">
+            <span>Hiển thị: <b id="total-count" class="text-sky-400 font-bold">0</b> câu hỏi</span>
             <span>Đã trả lời: <b id="answered-count" class="text-emerald-400 font-bold">0</b> / <span id="total-count-2">0</span></span>
+            <span>Đã đánh dấu khó: <b id="marked-count-text" class="text-amber-400 font-bold">0</b> câu</span>
         </div>
 
         <!-- Questions List Container -->
@@ -65,7 +69,7 @@
             </h3>
             <textarea id="import-text-area" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-mono focus:outline-none focus:border-sky-500 flex-1 min-h-[300px] mb-4" placeholder="Dán văn bản câu hỏi vào đây..."></textarea>
             <div class="flex justify-between items-center">
-                <button id="btn-clear-data" class="text-rose-400 text-xs hover:underline">Xóa lịch sử bài làm</button>
+                <button id="btn-clear-data" class="text-rose-400 text-xs hover:underline">Xóa dữ liệu làm bài</button>
                 <button id="btn-save-import" class="bg-sky-600 hover:bg-sky-500 px-6 py-2.5 rounded-xl font-medium text-sm text-white shadow-lg">
                     Tải Lại Danh Sách
                 </button>
@@ -3934,44 +3938,67 @@ c. ISOL VALVES pb set to off.
 
         let quizData = parseA350Text(defaultPdfText);
         let userSelected = {};
+        let markedQuestions = {};
+
         try {
             userSelected = JSON.parse(localStorage.getItem('a350_user_answers')) || {};
+            markedQuestions = JSON.parse(localStorage.getItem('a350_marked_questions')) || {};
         } catch (e) {
             userSelected = {};
+            markedQuestions = {};
         }
 
         let showAllAnswers = false;
+        let filterMarkedOnly = false;
 
         const qContainer = document.getElementById('questions-list');
         const btnToggleAnswers = document.getElementById('btn-toggle-answers');
+        const btnFilterMarked = document.getElementById('btn-filter-marked');
+        const btnResetQuiz = document.getElementById('btn-reset-quiz');
         const btnImport = document.getElementById('btn-import');
         const modalImport = document.getElementById('modal-import');
+
+        function updateCounts() {
+            const markedKeys = Object.keys(markedQuestions).filter(k => markedQuestions[k]);
+            document.getElementById('marked-count-text').innerText = markedKeys.length;
+            document.getElementById('marked-count-btn').innerText = `⭐ Cần xem lại (${markedKeys.length})`;
+        }
 
         function renderQuestions() {
             qContainer.innerHTML = '';
 
-            if (!quizData || quizData.length === 0) {
+            let displayList = quizData;
+            if (filterMarkedOnly) {
+                displayList = quizData.filter(q => markedQuestions[q.id]);
+            }
+
+            if (!displayList || displayList.length === 0) {
                 qContainer.innerHTML = `
                     <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-8 text-center my-8">
-                        <i class="fa-solid fa-file-pdf text-4xl text-sky-400 mb-3"></i>
-                        <h2 class="text-lg font-bold mb-2">Chưa có dữ liệu câu hỏi trong mã nguồn</h2>
-                        <p class="text-xs text-slate-400 mb-4">Bạn hãy dán văn bản file PDF vào biến <code>defaultPdfText</code> ở dòng 118 trong code.</p>
+                        <i class="fa-solid fa-star text-4xl text-amber-400 mb-3"></i>
+                        <h2 class="text-lg font-bold mb-2">${filterMarkedOnly ? 'Chưa có câu hỏi khó nào được đánh dấu' : 'Chưa có dữ liệu câu hỏi trong mã nguồn'}</h2>
+                        <p class="text-xs text-slate-400 mb-4">${filterMarkedOnly ? 'Bấm vào biểu tượng ngôi sao ở các câu hỏi khó để đưa vào danh sách xem lại.' : 'Bạn hãy dán văn bản file PDF vào biến defaultPdfText ở dòng 123 trong code.'}</p>
                     </div>`;
                 document.getElementById('total-count').innerText = "0";
-                document.getElementById('total-count-2').innerText = "0";
-                document.getElementById('answered-count').innerText = "0";
+                document.getElementById('total-count-2').innerText = quizData.length;
+                document.getElementById('answered-count').innerText = Object.keys(userSelected).length;
+                updateCounts();
                 return;
             }
 
-            document.getElementById('total-count').innerText = quizData.length;
+            document.getElementById('total-count').innerText = displayList.length;
             document.getElementById('total-count-2').innerText = quizData.length;
             document.getElementById('answered-count').innerText = Object.keys(userSelected).length;
+            updateCounts();
 
-            quizData.forEach((q) => {
+            displayList.forEach((q) => {
                 const qNum = q.id;
                 const qCard = document.createElement('div');
                 qCard.id = `q-card-${qNum}`;
-                qCard.className = "bg-slate-800 border border-slate-700/80 rounded-2xl p-5 shadow-md flex flex-col gap-4 transition";
+                
+                const isMarked = !!markedQuestions[qNum];
+                const cardBorder = isMarked ? "border-amber-500/80 bg-slate-800/90 ring-1 ring-amber-500/30" : "border-slate-700/80 bg-slate-800";
+                qCard.className = `${cardBorder} rounded-2xl p-5 shadow-md flex flex-col gap-4 transition`;
 
                 const isAnswered = userSelected.hasOwnProperty(qNum);
                 const userChoice = userSelected[qNum];
@@ -3986,10 +4013,15 @@ c. ISOL VALVES pb set to off.
                     }
                 }
 
+                const starStyle = isMarked ? "text-amber-400 fa-solid" : "text-slate-500 hover:text-amber-400 fa-regular";
+
                 let cardHtml = `
                     <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-3">
                             <span class="font-bold text-sky-400 text-sm">Câu ${qNum}</span>
+                            <button onclick="toggleMarkQuestion(${qNum})" class="text-base transition" title="Đánh dấu câu khó/cần xem lại">
+                                <i class="${starStyle} fa-star"></i>
+                            </button>
                         </div>
                         ${statusBadge}
                     </div>
@@ -4030,6 +4062,37 @@ c. ISOL VALVES pb set to off.
             renderQuestions();
         }
 
+        function toggleMarkQuestion(qNum) {
+            markedQuestions[qNum] = !markedQuestions[qNum];
+            try {
+                localStorage.setItem('a350_marked_questions', JSON.stringify(markedQuestions));
+            } catch (e) {}
+            renderQuestions();
+        }
+
+        btnFilterMarked.onclick = () => {
+            filterMarkedOnly = !filterMarkedOnly;
+            if (filterMarkedOnly) {
+                btnFilterMarked.className = "bg-amber-500 text-slate-950 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow";
+            } else {
+                btnFilterMarked.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5";
+            }
+            renderQuestions();
+        };
+
+        btnResetQuiz.onclick = () => {
+            if (confirm("Bạn có chắc chắn muốn RESET toàn bộ lịch sử bài làm và danh sách đánh dấu? (Dữ liệu làm lại từ đầu)")) {
+                userSelected = {};
+                markedQuestions = {};
+                localStorage.removeItem('a350_user_answers');
+                localStorage.removeItem('a350_marked_questions');
+                filterMarkedOnly = false;
+                btnFilterMarked.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5";
+                renderQuestions();
+                alert("Đã reset thành công! Bắt đầu ôn tập lượt mới.");
+            }
+        };
+
         btnToggleAnswers.onclick = () => {
             showAllAnswers = !showAllAnswers;
             btnToggleAnswers.innerHTML = showAllAnswers ? 
@@ -4056,6 +4119,12 @@ c. ISOL VALVES pb set to off.
         document.getElementById('btn-go-num').onclick = () => {
             const num = parseInt(document.getElementById('input-search-num').value);
             if (num >= 1 && num <= 752) {
+                if (filterMarkedOnly && !markedQuestions[num]) {
+                    alert(`Câu ${num} chưa được đánh dấu ngôi sao! Đang tắt bộ lọc để chuyển đến câu ${num}...`);
+                    filterMarkedOnly = false;
+                    btnFilterMarked.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 text-xs px-3 py-2 rounded-xl transition font-medium flex items-center gap-1.5";
+                    renderQuestions();
+                }
                 const targetEl = document.getElementById(`q-card-${num}`);
                 if (targetEl) {
                     targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
