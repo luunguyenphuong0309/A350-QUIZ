@@ -4179,51 +4179,78 @@ c. ISOL VALVES pb set to off.
         }
 
         function parseA350Text(rawText) {
-            if (!rawText) return [];
-            const blocks = rawText.split(/(?=\n\s*\d{1,3}\.\s+[A-Z])/i);
-            const parsed = [];
+    try {
+        // 1. Dọn dẹp các ký tự ẩn tàng hình sinh ra khi copy từ file PDF
+        const cleanText = rawText.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
-            blocks.forEach((block) => {
-                const trimmed = block.trim();
-                if (!trimmed) return;
+        // 2. Cắt thô văn bản ngay trước các con số có dấu chấm (vd: 1., 119.)
+        const rawBlocks = cleanText.split(/(?=\b\d{1,3}\.\s)/g);
+        const mergedBlocks = [];
+        let expectedId = 1;
 
-                const lines = trimmed.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                if (lines.length < 2) return;
+        // 3. Ghép nối lại các đoạn bị cắt nhầm (do câu hỏi chứa số đếm bên trong nội dung)
+        rawBlocks.forEach(block => {
+            const text = block.trim();
+            if (!text) return;
 
-                const matchNum = lines[0].match(/^(\d{1,3})\./);
-                if (!matchNum) return;
+            // Dùng ^\D* để vượt qua mọi ký tự rác/tàng hình và tóm gọn con số
+            const idMatch = text.match(/^\D*(\d{1,3})\.\s/);
+            
+            if (idMatch) {
+                const id = parseInt(idMatch[1], 10);
                 
-                const qNum = parseInt(matchNum[1]);
-                let questionStr = "";
-                let options = [];
-
-                lines.forEach(line => {
-                    if (/^[a-d][\.\)]\s+/i.test(line)) {
-                        options.push(line);
-                    } else if (options.length === 0) {
-                        questionStr += (questionStr ? " " : "") + line;
-                    } else {
-                        options[options.length - 1] += " " + line;
+                // Chỉ tách câu mới nếu số thứ tự đúng tiến độ (cho phép nhảy 1-2 số đề phòng PDF gõ thiếu)
+                if (id === expectedId || id === expectedId + 1 || id === expectedId + 2) {
+                    expectedId = id + 1; 
+                    mergedBlocks.push(text);
+                } else {
+                    // Nếu là số liệt kê nằm bên trong nội dung, nối trả lại vào câu trước đó
+                    if (mergedBlocks.length > 0) {
+                        mergedBlocks[mergedBlocks.length - 1] += " \n" + text;
                     }
-                });
+                }
+            } else {
+                if (mergedBlocks.length > 0) {
+                    mergedBlocks[mergedBlocks.length - 1] += " \n" + text;
+                }
+            }
+        });
 
-                questionStr = questionStr.replace(/^\d{1,3}\.\s*/i, '');
+        const parsedData = [];
 
-                if (questionStr && options.length > 0) {
-                    const ansLetter = rawAnswers[qNum] || 'A';
-                    parsed.push({
-                        id: qNum,
-                        question: questionStr,
+        // 4. Bóc tách câu hỏi và đáp án từ khối đã ghép hoàn chỉnh
+        mergedBlocks.forEach(fullText => {
+            // Dùng [a-h] để an toàn tuyệt đối với các câu có nhiều lựa chọn đến e, f (như câu 269)
+            const parts = fullText.split(/(?=\b[a-h]\.\s)/i);
+            
+            if (parts.length > 1) {
+                const questionText = parts[0].trim();
+                const options = parts.slice(1).map(opt => opt.trim());
+                
+                const idMatch = questionText.match(/^\D*(\d{1,3})\.\s/);
+                if (idMatch) {
+                    const id = parseInt(idMatch[1], 10);
+                    
+                    // Lấy đáp án chuẩn từ bảng rawAnswers
+                    const ansLetter = rawAnswers[id];
+                    const ansIdx = letterToIdx(ansLetter);
+
+                    parsedData.push({
+                        id: id,                  // THÊM: Số thứ tự để UI hiển thị và chấm điểm
+                        question: questionText,
                         options: options,
-                        answerLetter: ansLetter,
-                        answerIdx: letterToIdx(ansLetter)
+                        answerIdx: ansIdx        // THÊM: Index của đáp án đúng
                     });
                 }
-            });
+            }
+        });
 
-            parsed.sort((a, b) => a.id - b.id);
-            return parsed;
-        }
+        return parsedData;
+    } catch (error) {
+        console.error("Lỗi khi parse dữ liệu:", error);
+        return []; 
+    }
+}        }
 
         // Khởi tạo các trạng thái biến
         let quizData = parseA350Text(defaultPdfText);
