@@ -4178,52 +4178,48 @@ c. ISOL VALVES pb set to off.
             return letter.toUpperCase().charCodeAt(0) - 65;
         }
 
-        function parseA350Text(rawText) {
-            if (!rawText) return [];
-            const blocks = rawText.split(/(?=\n\s*\d{1,3}\.\s+[A-Z])/i);
-            const parsed = [];
+        function parseQuizData(rawText) {
+    // Tách các câu hỏi dựa trên số thứ tự ở đầu dòng (ví dụ: "131. ", "132. ")
+    const rawQuestions = rawText.split(/(?=\n\d+\.\s)/g);
+    
+    const parsedQuestions = [];
 
-            blocks.forEach((block) => {
-                const trimmed = block.trim();
-                if (!trimmed) return;
+    rawQuestions.forEach(block => {
+        if (!block.trim()) return;
 
-                const lines = trimmed.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                if (lines.length < 2) return;
+        const lines = block.trim().split('\n');
+        const questionLineIndex = lines.findIndex(line => /^\d+\./.test(line));
+        
+        if (questionLineIndex === -1) return;
 
-                const matchNum = lines[0].match(/^(\d{1,3})\./);
-                if (!matchNum) return;
-                
-                const qNum = parseInt(matchNum[1]);
-                let questionStr = "";
-                let options = [];
+        const questionText = lines[questionLineIndex].replace(/^\d+\.\s*/, '').trim();
+        
+        const options = [];
+        let currentOption = null;
 
-                lines.forEach(line => {
-                    if (/^[a-d][\.\)]\s+/i.test(line)) {
-                        options.push(line);
-                    } else if (options.length === 0) {
-                        questionStr += (questionStr ? " " : "") + line;
-                    } else {
-                        options[options.length - 1] += " " + line;
-                    }
-                });
-
-                questionStr = questionStr.replace(/^\d{1,3}\.\s*/i, '');
-
-                if (questionStr && options.length > 0) {
-                    const ansLetter = rawAnswers[qNum] || 'A';
-                    parsed.push({
-                        id: qNum,
-                        question: questionStr,
-                        options: options,
-                        answerLetter: ansLetter,
-                        answerIdx: letterToIdx(ansLetter)
-                    });
+        for (let i = questionLineIndex + 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (/^[a-h]\.\s/.test(line)) {
+                if (currentOption) {
+                    options.push(currentOption);
                 }
-            });
-
-            parsed.sort((a, b) => a.id - b.id);
-            return parsed;
+                currentOption = line;
+            } else if (currentOption) {
+                currentOption += " " + line;
+            }
         }
+        if (currentOption) {
+            options.push(currentOption);
+        }
+
+        parsedQuestions.push({
+            question: questionText,
+            options: options
+        });
+    });
+
+    return parsedQuestions;
+}        }
 
         // Khởi tạo các trạng thái biến
         let quizData = parseA350Text(defaultPdfText);
